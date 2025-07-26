@@ -1,0 +1,15 @@
+{
+  "id": "17c796aa-ce1b-4662-b62e-8eb9b1570633",
+  "name": "",
+  "description": "小丽（女，28岁，优雅连衣裙，温柔美丽）",
+  "image_path": "data/characters\\17c796aa-ce1b-4662-b62e-8eb9b1570633.png",
+  "voice_model": "female_middle_01",
+  "metadata": {
+    "gender": "female",
+    "age": "middle",
+    "style": "elegant",
+    "appearance": "",
+    "personality": "",
+    "name": ""
+  }
+}

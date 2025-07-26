@@ -1,0 +1,15 @@
+{
+  "id": "f213d7fe-7e94-45d4-8256-1e8010b52456",
+  "name": "",
+  "description": "测试角色（男，25岁，休闲装）",
+  "image_path": "data/characters\\f213d7fe-7e94-45d4-8256-1e8010b52456.png",
+  "voice_model": "male_middle_01",
+  "metadata": {
+    "gender": "male",
+    "age": "middle",
+    "style": "casual",
+    "appearance": "",
+    "personality": "",
+    "name": ""
+  }
+}

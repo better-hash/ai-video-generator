@@ -1,0 +1,15 @@
+{
+  "id": "d67ac99a-74a4-4458-bb83-31e858baa274",
+  "name": "",
+  "description": "30岁男性，西装革履，成熟稳重",
+  "image_path": "data/characters\\d67ac99a-74a4-4458-bb83-31e858baa274.png",
+  "voice_model": "male_young_01",
+  "metadata": {
+    "gender": "male",
+    "age": "young",
+    "style": "formal",
+    "appearance": "",
+    "personality": "",
+    "name": ""
+  }
+}

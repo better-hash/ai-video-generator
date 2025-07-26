@@ -1,0 +1,14 @@
+{
+  "name": "video-agent-mcp",
+  "version": "1.0.0",
+  "description": "AI视频生成工具的MCP工具配置",
+  "scripts": {
+    "install-mcp": "npm install @modelcontextprotocol/server-filesystem @modelcontextprotocol/server-terminal @modelcontextprotocol/server-github @modelcontextprotocol/server-web-search"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/server-filesystem": "^0.1.0",
+    "@modelcontextprotocol/server-terminal": "^0.1.0",
+    "@modelcontextprotocol/server-github": "^0.1.0",
+    "@modelcontextprotocol/server-web-search": "^0.1.0"
+  }
+} 

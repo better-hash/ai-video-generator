@@ -1,0 +1,15 @@
+{
+  "id": "631de9a3-2317-48c8-b604-3969bd491e1a",
+  "name": "",
+  "description": "28岁女性，优雅连衣裙，温柔美丽",
+  "image_path": "data/characters\\631de9a3-2317-48c8-b604-3969bd491e1a.png",
+  "voice_model": "female_middle_01",
+  "metadata": {
+    "gender": "female",
+    "age": "middle",
+    "style": "elegant",
+    "appearance": "",
+    "personality": "",
+    "name": ""
+  }
+}

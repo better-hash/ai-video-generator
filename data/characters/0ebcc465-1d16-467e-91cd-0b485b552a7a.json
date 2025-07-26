@@ -1,0 +1,15 @@
+{
+  "id": "0ebcc465-1d16-467e-91cd-0b485b552a7a",
+  "name": "",
+  "description": "小明（男，30岁，西装革履，成熟稳重）",
+  "image_path": "data/characters\\0ebcc465-1d16-467e-91cd-0b485b552a7a.png",
+  "voice_model": "male_young_01",
+  "metadata": {
+    "gender": "male",
+    "age": "young",
+    "style": "formal",
+    "appearance": "",
+    "personality": "",
+    "name": ""
+  }
+}

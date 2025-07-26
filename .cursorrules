@@ -1,0 +1,10 @@
+# Cursor配置文件 - 启用MCP工具
+
+# 启用MCP工具
+mcp_enabled: true
+
+# 项目特定规则
+- 这是一个AI视频生成项目，使用Python FastAPI后端
+- 优先使用中文注释和文档
+- 遵循PEP 8代码规范
+- 重视AI模型集成和视频处理功能 

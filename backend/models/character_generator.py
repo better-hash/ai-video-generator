@@ -26,11 +26,35 @@ class CharacterGenerator:
         # 确保输出目录存在
         os.makedirs(self.output_dir, exist_ok=True)
         
-        # 在实际实现中，这里会加载Stable Diffusion模型
-        # self.sd_model = StableDiffusionPipeline.from_pretrained(model_path)
-        # self.controlnet = ControlNetModel.from_pretrained("lllyasviel/control_v11p_sd15_openpose")
+        # 初始化AI模型
+        self.sd_model = None
+        self._init_ai_models()
         
         print(f"角色生成器初始化完成，模型路径: {model_path}")
+    
+    def _init_ai_models(self):
+        """初始化AI模型"""
+        try:
+            import torch
+            from diffusers import StableDiffusionXLPipeline
+            
+            print("🔄 正在加载角色生成模型...")
+            
+            self.sd_model = StableDiffusionXLPipeline.from_pretrained(
+                self.model_path,
+                torch_dtype=torch.float16,
+                variant="fp16",
+                use_safetensors=True
+            )
+            
+            if torch.cuda.is_available():
+                self.sd_model = self.sd_model.to("cuda")
+            
+            print("✅ Stable Diffusion XL 角色生成模型加载成功")
+            
+        except Exception as e:
+            print(f"⚠️ 角色生成模型加载失败，使用占位模式: {e}")
+            self.sd_model = None
     
     def _load_character_templates(self) -> Dict[str, Dict[str, Any]]:
         """加载角色模板"""
@@ -217,16 +241,41 @@ class CharacterGenerator:
     
     def _generate_character_image(self, prompt: str, character_id: str) -> str:
         """生成角色图像"""
-        # 在实际实现中，这里会调用Stable Diffusion模型
-        # image = self.sd_model(prompt).images[0]
-        
-        # 模拟图像生成
         image_path = os.path.join(self.output_dir, f"{character_id}.png")
         
-        # 创建一个简单的占位图像
-        self._create_placeholder_image(image_path, prompt)
-        
-        return image_path
+        if self.sd_model:
+            # 使用AI模型生成角色图像
+            try:
+                print(f"🎨 正在生成角色图像: {prompt[:50]}...")
+                
+                # 生成图像
+                result = self.sd_model(
+                    prompt=prompt,
+                    negative_prompt="low quality, blurry, distorted, deformed, worst quality, bad anatomy",
+                    num_inference_steps=30,
+                    guidance_scale=7.5,
+                    width=512,
+                    height=512
+                )
+                
+                # 检查结果
+                if hasattr(result, 'images') and len(result.images) > 0:
+                    image = result.images[0]
+                    image.save(image_path)
+                    print(f"✅ 角色图像生成成功: {image_path}")
+                    return image_path
+                else:
+                    raise Exception("生成结果为空")
+                    
+            except Exception as e:
+                print(f"⚠️ AI角色图像生成失败: {e}")
+                # 回退到占位图像
+                self._create_placeholder_image(image_path, prompt)
+                return image_path
+        else:
+            # 创建占位图像
+            self._create_placeholder_image(image_path, prompt)
+            return image_path
     
     def _create_placeholder_image(self, image_path: str, prompt: str):
         """创建占位图像（用于演示）"""
@@ -360,4 +409,4 @@ if __name__ == "__main__":
         print(f"描述: {character.description}")
         print(f"图像路径: {character.image_path}")
         print(f"语音模型: {character.voice_model}")
-        print("---") 
+        print("---")

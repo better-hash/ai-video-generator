@@ -50,7 +50,8 @@ class SceneGenerator:
         :return: Scene 对象
         """
         # 生成唯一场景ID（使用时间戳）
-        scene_id = str(int(os.times().elapsed))
+        import time
+        scene_id = str(int(time.time() * 1000))
         image_path = os.path.join(self.output_dir, f"{scene_id}.png")
         
         # 生成图像
@@ -126,4 +127,4 @@ class SceneGenerator:
         y = (height - text_height) // 2
         
         draw.text((x, y), text, fill=(255, 255, 255), font=font)
-        image.save(image_path) 
+        image.save(image_path)

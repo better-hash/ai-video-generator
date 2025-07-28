@@ -26,9 +26,15 @@ numpy==1.24.3
 moviepy==1.0.3
 ffmpeg-python==0.2.0
 
+# Audio processing
+soundfile==0.12.1
+torchaudio==2.1.1
+scipy==1.11.4
+speechbrain==0.5.16
+
 # Async tasks
 celery==5.3.4
 
 # Utilities
 requests==2.31.0
-aiofiles==23.2.1 
+aiofiles==23.2.1

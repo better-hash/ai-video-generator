@@ -52,34 +52,74 @@ class VideoGenerator:
     def _init_ai_models(self):
         """初始化AI模型"""
         try:
-            import torch  # 添加torch导入
-            # 导入AI模型
-            from diffusers import StableVideoDiffusionPipeline, StableDiffusionPipeline
-            from transformers import pipeline
+            import torch
+            from diffusers import StableVideoDiffusionPipeline, StableDiffusionXLPipeline
+            from transformers import SpeechT5Processor, SpeechT5ForTextToSpeech, SpeechT5HifiGan
+            
+            print("🔄 正在加载AI模型...")
             
             # 视频生成模型
-            self.svd_pipeline = StableVideoDiffusionPipeline.from_pretrained(
-                "stabilityai/stable-video-diffusion-img2vid-xt",
-                torch_dtype=torch.float16,
-                variant="fp16"
-            )
+            try:
+                self.svd_pipeline = StableVideoDiffusionPipeline.from_pretrained(
+                    "stabilityai/stable-video-diffusion-img2vid-xt",
+                    torch_dtype=torch.float16,
+                    variant="fp16"
+                )
+                if torch.cuda.is_available():
+                    self.svd_pipeline = self.svd_pipeline.to("cuda")
+                print("✅ Stable Video Diffusion 加载成功")
+            except Exception as e:
+                print(f"⚠️ Stable Video Diffusion 加载失败: {e}")
+                self.svd_pipeline = None
             
-            # 图像生成模型
-            self.sd_pipeline = StableDiffusionPipeline.from_pretrained(
-                "stabilityai/stable-diffusion-xl-base-1.0",
-                torch_dtype=torch.float16
-            )
+            # 图像生成模型 - 使用SDXL
+            try:
+                self.sd_pipeline = StableDiffusionXLPipeline.from_pretrained(
+                    "stabilityai/stable-diffusion-xl-base-1.0",
+                    torch_dtype=torch.float16,
+                    variant="fp16",
+                    use_safetensors=True
+                )
+                if torch.cuda.is_available():
+                    self.sd_pipeline = self.sd_pipeline.to("cuda")
+                print("✅ Stable Diffusion XL 加载成功")
+            except Exception as e:
+                print(f"⚠️ Stable Diffusion XL 加载失败: {e}")
+                self.sd_pipeline = None
             
-            # 语音合成模型
-            self.tts_pipeline = pipeline("text-to-speech", model="microsoft/speecht5_tts")
+            # 语音合成模型 - 使用SpeechT5
+            try:
+                self.tts_processor = SpeechT5Processor.from_pretrained("microsoft/speecht5_tts")
+                self.tts_model = SpeechT5ForTextToSpeech.from_pretrained("microsoft/speecht5_tts")
+                self.tts_vocoder = SpeechT5HifiGan.from_pretrained("microsoft/speecht5_hifigan")
+                
+                if torch.cuda.is_available():
+                    self.tts_model = self.tts_model.to("cuda")
+                    self.tts_vocoder = self.tts_vocoder.to("cuda")
+                
+                # 创建默认说话人嵌入
+                self.default_speaker_embedding = torch.zeros(512)
+                if torch.cuda.is_available():
+                    self.default_speaker_embedding = self.default_speaker_embedding.to("cuda")
+                
+                print("✅ SpeechT5 TTS 加载成功")
+            except Exception as e:
+                print(f"⚠️ SpeechT5 TTS 加载失败: {e}")
+                self.tts_processor = None
+                self.tts_model = None
+                self.tts_vocoder = None
+                self.default_speaker_embedding = None
             
-            print("✅ AI模型加载成功")
+            print("✅ AI模型初始化完成")
             
         except Exception as e:
             print(f"⚠️ AI模型加载失败，使用模拟模式: {e}")
             self.svd_pipeline = None
             self.sd_pipeline = None
-            self.tts_pipeline = None
+            self.tts_processor = None
+            self.tts_model = None
+            self.tts_vocoder = None
+            self.default_speaker_embedding = None
     
     def generate_video(self, script, characters: List, actions: List) -> Video:
         """生成完整视频"""
@@ -529,7 +569,7 @@ class VideoGenerator:
     def _generate_audio(self, script, video_id: str) -> str:
         """生成音频"""
         try:
-            if self.tts_pipeline:
+            if self.tts_processor and self.tts_model and self.tts_vocoder:
                 # 使用AI模型生成语音
                 return self._generate_ai_audio(script, video_id)
             else:
@@ -543,6 +583,10 @@ class VideoGenerator:
     def _generate_ai_audio(self, script, video_id: str) -> str:
         """使用AI模型生成音频"""
         try:
+            # 检查TTS模型是否可用
+            if not (self.tts_processor and self.tts_model and self.tts_vocoder):
+                raise Exception("TTS模型未加载")
+            
             # 提取对话文本
             dialogues = []
             if hasattr(script, 'dialogues') and script.dialogues:
@@ -552,29 +596,33 @@ class VideoGenerator:
             if not dialogues:
                 dialogues = ["欢迎观看AI生成的视频"]
             
-            # 合并所有对话
-            full_text = " ".join(dialogues)
+            # 合并所有对话（限制长度避免过长）
+            full_text = " ".join(dialogues)[:200]  # 限制文本长度
             
             # 生成语音
             audio_path = os.path.join(self.temp_dir, f"audio_{video_id}.wav")
             
-            if self.tts_pipeline:
-                # 使用TTS模型生成语音
-                audio = self.tts_pipeline(full_text)
-                
-                # 保存音频文件
-                if hasattr(audio, 'save'):
-                    audio.save(audio_path)
-                elif hasattr(audio, 'numpy'):
-                    import numpy as np
-                    import soundfile as sf
-                    sf.write(audio_path, audio.numpy(), 22050)
-                else:
-                    raise Exception("Unsupported audio format")
-                
-                return audio_path
-            else:
-                raise Exception("TTS pipeline not available")
+            # 使用SpeechT5生成语音
+            inputs = self.tts_processor(text=full_text, return_tensors="pt")
+            
+            # 移动输入到GPU（如果可用）
+            if torch.cuda.is_available():
+                inputs = {k: v.to("cuda") for k, v in inputs.items()}
+            
+            # 生成语音
+            with torch.no_grad():
+                speech = self.tts_model.generate_speech(
+                    inputs["input_ids"], 
+                    self.default_speaker_embedding.unsqueeze(0), 
+                    vocoder=self.tts_vocoder
+                )
+            
+            # 保存音频文件
+            import soundfile as sf
+            sf.write(audio_path, speech.cpu().numpy(), 16000)
+            
+            print(f"✅ AI音频生成成功: {audio_path}")
+            return audio_path
                 
         except Exception as e:
             print(f"⚠️ AI音频生成失败: {e}")
@@ -711,4 +759,4 @@ class VideoGenerator:
             return video_path
         except Exception as e:
             print(f"视频生成失败: {e}")
-            return None 
+            return None

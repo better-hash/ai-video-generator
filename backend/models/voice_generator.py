@@ -50,36 +50,49 @@ class VoiceGenerator:
         :param language: 语言代码
         :return: 生成的语音文件路径
         """
-        if not self.model or not self.processor:
+        if not self.model or not self.processor or not self.vocoder:
             print("语音生成模型未初始化")
             return None
         
         try:
+            # 限制文本长度
+            text = text[:200] if len(text) > 200 else text
+            
             # 生成语音 ID（使用时间戳）
-            voice_id = str(int(os.times().elapsed))
+            import time
+            voice_id = str(int(time.time() * 1000))
             voice_path = os.path.join(self.output_dir, f"{voice_id}.wav")
             
             # 处理输入文本
             inputs = self.processor(text=text, return_tensors="pt")
             
+            # 移动输入到GPU（如果可用）
+            if torch.cuda.is_available():
+                inputs = {k: v.to("cuda") for k, v in inputs.items()}
+            
             # 如果没有提供说话人嵌入，使用默认嵌入
             if speaker_embedding is None:
-                # 使用预训练的默认说话人嵌入
                 speaker_embedding = torch.zeros(512)
+                if torch.cuda.is_available():
+                    speaker_embedding = speaker_embedding.to("cuda")
             
             # 生成语音
-            speech = self.model.generate_speech(
-                inputs["input_ids"], 
-                speaker_embedding, 
-                vocoder=self.vocoder
-            )
+            with torch.no_grad():
+                speech = self.model.generate_speech(
+                    inputs["input_ids"], 
+                    speaker_embedding.unsqueeze(0), 
+                    vocoder=self.vocoder
+                )
             
             # 保存语音文件
-            torch.save(speech.squeeze(), voice_path)
+            import soundfile as sf
+            sf.write(voice_path, speech.cpu().numpy(), 16000)
             
+            print(f"✅ 语音生成成功: {voice_path}")
             return voice_path
+            
         except Exception as e:
-            print(f"语音生成失败: {e}")
+            print(f"⚠️ 语音生成失败: {e}")
             return None
     
     def load_speaker_embedding(self, embedding_path: Optional[str] = None) -> Optional[torch.Tensor]:
@@ -95,4 +108,4 @@ class VoiceGenerator:
             except Exception as e:
                 print(f"加载说话人嵌入失败: {e}")
         
-        return None 
+        return None

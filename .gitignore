@@ -127,7 +127,19 @@ temp/
 uploads/
 downloads/
 
+# Node.js
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.npm
+.yarn-integrity
+
+# Frontend build
+frontend/dist/
+frontend/build/
+
 # API keys and secrets
 config.ini
 secrets.json
-.env.local 
+.env.local

@@ -97,8 +97,8 @@ class VideoGenerator:
                     self.tts_model = self.tts_model.to("cuda")
                     self.tts_vocoder = self.tts_vocoder.to("cuda")
                 
-                # 创建默认说话人嵌入
-                self.default_speaker_embedding = torch.zeros(512)
+                # 创建默认说话人嵌入 - 使用随机初始化而不是全零
+                self.default_speaker_embedding = torch.randn(512) * 0.1
                 if torch.cuda.is_available():
                     self.default_speaker_embedding = self.default_speaker_embedding.to("cuda")
                 
@@ -219,6 +219,10 @@ class VideoGenerator:
     def _generate_ai_background(self, description: str, scene_id: str) -> str:
         """使用AI模型生成背景"""
         try:
+            # 检查SD模型是否可用
+            if not self.sd_pipeline:
+                raise Exception("SD模型未加载")
+                
             prompt = f"cinematic scene: {description}, high quality, detailed, professional photography"
             
             # 生成图像
@@ -228,18 +232,17 @@ class VideoGenerator:
                 guidance_scale=7.5,
             )
             
-            # 检查结果类型
-            if not result:
-                raise Exception("生成结果为空")
-                
-            # 获取图像
-            if hasattr(result, "images") and isinstance(result.images, list) and len(result.images) > 0:
+            # 检查结果并获取图像
+            image = None
+            if hasattr(result, 'images') and result.images and len(result.images) > 0:
                 image = result.images[0]
+            elif hasattr(result, 'image'):
+                image = result.image
             else:
                 raise Exception(f"无效的生成结果格式: {type(result)}")
             
             # 检查图像类型
-            if not isinstance(image, Image.Image):
+            if not hasattr(image, 'save'):
                 raise Exception(f"生成的图像类型无效: {type(image)}")
             
             # 调整图像大小
@@ -322,20 +325,38 @@ class VideoGenerator:
     def _generate_ai_character(self, character, char_id: str) -> str:
         """使用AI模型生成角色图像"""
         try:
+            # 检查SD模型是否可用
+            if not self.sd_pipeline:
+                raise Exception("SD模型未加载")
+                
             description = character.description if hasattr(character, 'description') else str(character)
             prompt = f"portrait of {description}, high quality, detailed face, professional photography"
             
             # 生成图像
-            result = self.sd_pipeline(prompt)
-            if hasattr(result, 'images') and result.images:
+            result = self.sd_pipeline(
+                prompt=prompt,
+                num_inference_steps=30,
+                guidance_scale=7.5,
+            )
+            
+            # 检查结果并获取图像
+            image = None
+            if hasattr(result, 'images') and result.images and len(result.images) > 0:
                 image = result.images[0]
+            elif hasattr(result, 'image'):
+                image = result.image
             else:
-                raise Exception("No image generated")
+                raise Exception(f"无效的生成结果格式: {type(result)}")
+            
+            # 检查图像类型
+            if not hasattr(image, 'save'):
+                raise Exception(f"生成的图像类型无效: {type(image)}")
             
             # 保存图像
             image_path = os.path.join(self.temp_dir, f"character_{char_id}.png")
             image.save(image_path)
             
+            print(f"✅ 角色图像生成成功: {image_path}")
             return image_path
             
         except Exception as e:
@@ -584,8 +605,8 @@ class VideoGenerator:
         """使用AI模型生成音频"""
         try:
             # 检查TTS模型是否可用
-            if not (self.tts_processor and self.tts_model and self.tts_vocoder):
-                raise Exception("TTS模型未加载")
+            if not (self.tts_processor and self.tts_model and self.tts_vocoder and self.default_speaker_embedding is not None):
+                raise Exception("TTS模型或speaker_embedding未加载")
             
             # 提取对话文本
             dialogues = []
@@ -606,20 +627,31 @@ class VideoGenerator:
             inputs = self.tts_processor(text=full_text, return_tensors="pt")
             
             # 移动输入到GPU（如果可用）
-            if torch.cuda.is_available():
+            if torch.cuda.is_available() and self.tts_model.device.type == 'cuda':
                 inputs = {k: v.to("cuda") for k, v in inputs.items()}
+            
+            # 确保speaker_embedding维度正确
+            speaker_embedding = self.default_speaker_embedding
+            if speaker_embedding.dim() == 1:
+                speaker_embedding = speaker_embedding.unsqueeze(0)
             
             # 生成语音
             with torch.no_grad():
                 speech = self.tts_model.generate_speech(
                     inputs["input_ids"], 
-                    self.default_speaker_embedding.unsqueeze(0), 
+                    speaker_embedding, 
                     vocoder=self.tts_vocoder
                 )
             
             # 保存音频文件
-            import soundfile as sf
-            sf.write(audio_path, speech.cpu().numpy(), 16000)
+            try:
+                import soundfile as sf
+                # 确保音频数据在CPU上
+                audio_data = speech.cpu().numpy() if hasattr(speech, 'cpu') else speech
+                sf.write(audio_path, audio_data, 16000)
+            except ImportError:
+                # 如果soundfile不可用，创建占位文件
+                raise Exception("soundfile库未安装")
             
             print(f"✅ AI音频生成成功: {audio_path}")
             return audio_path
